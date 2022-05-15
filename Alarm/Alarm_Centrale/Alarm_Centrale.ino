@@ -3,15 +3,13 @@
 */
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
-#include <StreamString.h>
 #include "my_conf.h"
 #include "my_conn.h"
 
 /* Sketch */
 int alarmAAN = 0;
 int alarmBeep = 0;
-const int detectMove = 16; //D0 GPIO16
-const int zoemerPin  = 05; //D1 GPIO5
+const int zoemerPin  = 4; //D2 GPIO4
 
 /* MQTT - WiFi */
 WiFiClient mijnTCPClient;
@@ -23,22 +21,25 @@ void mijnCallback(char* topic, byte * payload, unsigned int lengte) {
   Serial.println(topic);
   Serial.print("[INFO] payload: ");
   Serial.println(payload[0]);
+
   /* ALarm Aan */
   if (onderwerp == MQTT_ALARM_AAN_TOPIC && payload[0] == 49) {
     alarmAAN = 1;
     mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "Alarm Aan");
     Serial.println("[INFO] Alarm staat aan");
   };
+
   /* ALarm Uit */
   if (onderwerp == MQTT_ALARM_AAN_TOPIC && payload[0] == 48) {
     alarmAAN = 0;
     alarmBeep = 0;
     digitalWrite(zoemerPin, LOW);
-    mijnMQTT.publish(MQTT_ALARM_DETECTIE_TOPIC, "0");
-    mijnMQTT.publish(MQTT_ALARM_BEEP_TOPIC, "0");
     mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "Alarm Uit");
+    mijnMQTT.publish(MQTT_ALARM_BEEP_TOPIC, "0");
+    mijnMQTT.publish(MQTT_ALARM_DETECTIE_TOPIC, "0");
     Serial.println("[INFO] Alarm staat uit");
   };
+
   /* Alarm Beeper Aan */
   if (onderwerp == MQTT_ALARM_BEEP_TOPIC && payload[0] == 49) {
     if (alarmAAN == 1) {
@@ -48,11 +49,26 @@ void mijnCallback(char* topic, byte * payload, unsigned int lengte) {
       // Als het alarm niet aanstaat , zet beeper terug naar uit
       mijnMQTT.publish(MQTT_ALARM_BEEP_TOPIC, "0");
     }
-  /* Alarm Beeper Uit */
   };
+
+  /* Alarm Beeper Uit */
   if (onderwerp == MQTT_ALARM_BEEP_TOPIC && payload[0] == 48) {
     alarmBeep = 0;
     Serial.println("[INFO] Beeper staat uit");
+  };
+
+  /* Alarm detectie */
+  if (onderwerp == MQTT_ALARM_DETECTIE_TOPIC && payload[0] == 49) {
+    if (alarmAAN == 1 && alarmBeep == 1) {
+      Serial.println("[INFO] Detectie");
+      digitalWrite(zoemerPin, HIGH);
+    }
+  };
+  
+  /* Alarm geen detectie */
+  if (onderwerp == MQTT_ALARM_DETECTIE_TOPIC && payload[0] == 48) {
+    Serial.println("[INFO] Geen detectie");
+    digitalWrite(zoemerPin, LOW);
   };
 }
 
@@ -62,7 +78,7 @@ void mijnCallback(char* topic, byte * payload, unsigned int lengte) {
 */
 void setup() {
   // put your setup code here, to run once:
-  delay(1000);
+  delay(100);
   Serial.begin(115200);
 
   /* Maak WiFi Connectie */
@@ -75,21 +91,18 @@ void setup() {
   makeMQTTConnection();
   makeMQTTSubscribe(MQTT_ALARM_AAN_TOPIC);
   makeMQTTSubscribe(MQTT_ALARM_BEEP_TOPIC);
+  makeMQTTSubscribe(MQTT_ALARM_DETECTIE_TOPIC);
 
   /* MQTT Opstart */
   alarmAAN = 0;
   alarmBeep = 0;
   mijnMQTT.publish(MQTT_ALARM_AAN_TOPIC, "0");
-  mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "Alarm Uit");
+  mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "0");
   mijnMQTT.publish(MQTT_ALARM_BEEP_TOPIC, "0");
-  mijnMQTT.publish(MQTT_ALARM_DETECTIE_TOPIC, "Geen");
 
   /* Sketch Opstart */
-  pinMode(detectMove, INPUT_PULLUP);
   pinMode(zoemerPin, OUTPUT);
-  digitalWrite(detectMove, LOW);
   digitalWrite(zoemerPin, LOW);
-
   Serial.println("[INFO] Alarm start");
 }
 
@@ -98,7 +111,7 @@ void setup() {
 */
 void loop() {
   // put your main code here, to run repeatedly:
-  delay(1000);
+  // delay(500);
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[FOUT] Verbinding met Wifi verbroken");
@@ -111,27 +124,13 @@ void loop() {
     makeMQTTConnection();
     makeMQTTSubscribe(MQTT_ALARM_AAN_TOPIC);
     makeMQTTSubscribe(MQTT_ALARM_BEEP_TOPIC);
-  }
-
-  if (alarmAAN == 1) {
-    if (digitalRead(detectMove) == LOW) {
-      Serial.println("[INFO] Geen detectie");
-      mijnMQTT.publish(MQTT_ALARM_DETECTIE_TOPIC, "Geen");
-      digitalWrite(zoemerPin, LOW);
-    } else {
-      Serial.println("[WARN] Detectie");
-      mijnMQTT.publish(MQTT_ALARM_DETECTIE_TOPIC, "Detectie");
-      if (alarmBeep == 1) {
-        digitalWrite(zoemerPin, HIGH);
-      }
-    }
+    makeMQTTSubscribe(MQTT_ALARM_DETECTIE_TOPIC);
   }
 }
 
-
 void makeMQTTConnection() {
   Serial.println("[INFO] Verbinden met MQTT Broker...");
-  if (mijnMQTT.connect(MQTT_CLIENT_ID)) {
+  if (mijnMQTT.connect(MQTT_CLIENT_ID_CENTRALE)) {
     Serial.println("[INFO] Verbinding met MQTT Broker gelukt.");
   } else {
     Serial.print("[FOUT] Verbinding met MQTT Broker mislukt. Foutcode ");
