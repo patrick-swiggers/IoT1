@@ -35,7 +35,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  // delay(100);
+  delay(300);
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[FOUT] Verbinding met Wifi verbroken");

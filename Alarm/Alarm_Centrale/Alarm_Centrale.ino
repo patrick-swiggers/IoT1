@@ -7,32 +7,32 @@
 #include "my_conn.h"
 
 /* Sketch */
-int alarmAAN = 0;
-int alarmBeep = 0;
+bool alarmAAN = false;
+bool alarmBeep = false;
 const int zoemerPin  = 4; //D2 GPIO4
 
 /* MQTT - WiFi */
 WiFiClient mijnTCPClient;
 PubSubClient mijnMQTT;
 
-void mijnCallback(char* topic, byte * payload, unsigned int lengte) {
+void mijnCallback(char* topic, byte* payload, unsigned int lengte) {
   String onderwerp = topic;
   Serial.print("[INFO] ontvangen bericht met als onderwerp: ");
   Serial.println(topic);
   Serial.print("[INFO] payload: ");
-  Serial.println(payload[0]);
+  Serial.println(payload[0]); // ascii 48 => 0 , 49 => 1
 
   /* ALarm Aan */
   if (onderwerp == MQTT_ALARM_AAN_TOPIC && payload[0] == 49) {
-    alarmAAN = 1;
+    alarmAAN = true;
     mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "Alarm Aan");
     Serial.println("[INFO] Alarm staat aan");
   };
 
   /* ALarm Uit */
   if (onderwerp == MQTT_ALARM_AAN_TOPIC && payload[0] == 48) {
-    alarmAAN = 0;
-    alarmBeep = 0;
+    alarmAAN = false;
+    alarmBeep = false;
     digitalWrite(zoemerPin, LOW);
     mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "Alarm Uit");
     mijnMQTT.publish(MQTT_ALARM_BEEP_TOPIC, "0");
@@ -42,8 +42,8 @@ void mijnCallback(char* topic, byte * payload, unsigned int lengte) {
 
   /* Alarm Beeper Aan */
   if (onderwerp == MQTT_ALARM_BEEP_TOPIC && payload[0] == 49) {
-    if (alarmAAN == 1) {
-      alarmBeep = 1;
+    if (alarmAAN == true) {
+      alarmBeep = true;
       Serial.println("[INFO] Beeper staat aan");
     } else {
       // Als het alarm niet aanstaat , zet beeper terug naar uit
@@ -53,13 +53,13 @@ void mijnCallback(char* topic, byte * payload, unsigned int lengte) {
 
   /* Alarm Beeper Uit */
   if (onderwerp == MQTT_ALARM_BEEP_TOPIC && payload[0] == 48) {
-    alarmBeep = 0;
+    alarmBeep = false;
     Serial.println("[INFO] Beeper staat uit");
   };
 
   /* Alarm detectie */
   if (onderwerp == MQTT_ALARM_DETECTIE_TOPIC && payload[0] == 49) {
-    if (alarmAAN == 1 && alarmBeep == 1) {
+    if (alarmAAN == true && alarmBeep == true) {
       Serial.println("[INFO] Detectie");
       digitalWrite(zoemerPin, HIGH);
     }
@@ -94,8 +94,8 @@ void setup() {
   makeMQTTSubscribe(MQTT_ALARM_DETECTIE_TOPIC);
 
   /* MQTT Opstart */
-  alarmAAN = 0;
-  alarmBeep = 0;
+  alarmAAN = false;
+  alarmBeep = false;
   mijnMQTT.publish(MQTT_ALARM_AAN_TOPIC, "0");
   mijnMQTT.publish(MQTT_ALARM_AAN_RESPONSE_TOPIC, "0");
   mijnMQTT.publish(MQTT_ALARM_BEEP_TOPIC, "0");
@@ -111,7 +111,7 @@ void setup() {
 */
 void loop() {
   // put your main code here, to run repeatedly:
-  // delay(500);
+  delay(300);
 
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[FOUT] Verbinding met Wifi verbroken");
