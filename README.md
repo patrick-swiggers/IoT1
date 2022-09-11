@@ -1,6 +1,6 @@
 # Internet of Things 
+## Cursus CVO Volt 2022 - IoT1 & IoT2 (2022)
+### Programming of the ESP microcontroller exercises.
 
 ![ESP8266](./ESP8266.png)
-
-IoT, Cursus CVO Volt 2022. Programming of the ESP8266 Microcontroller exercises.
-
+![ESP32](./ESP32.png)
